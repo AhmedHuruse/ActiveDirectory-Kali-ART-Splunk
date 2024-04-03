@@ -29,6 +29,7 @@ In this project, we looked to gain hands on experiance using tools that help us 
 - Powershell
 - Windows Command Prompt
 - Atomic Red Team
+- Powershell
 
 ## Steps
 - Step 1: We first must construct a diagram of our entire project and how it will be set up and with what tools and applications. In this project, I will not document insatlling and configuring splunk and sysmon because i have done that in another project. Pleace reference the cybersecurity operations center lab.
@@ -44,33 +45,29 @@ In this project, we looked to gain hands on experiance using tools that help us 
   
  <img src="https://i.imgur.com/qB7NWnI.png" height="40%" width="40%" alt="Active Directory Homelab Steps"/>  <img src="https://i.imgur.com/uBeh2g9.png" height="40%" width="40%" alt="Active Directory Homelab Steps"/> 
 
-- Step 5: For this project, I already know the passwords for the users in target machine and active directory because I create them. I will add the password of the user that I will brute force (jsmith) to the passwords.txt file using the "nano" command to edit the file and add the password. I will double check if it saved correctly by using the "cat" command against the file.
+- Step 5: For this project, I already know the passwords for the users in the target machine and active directory because I create them. I will add the password of the user that I will brute force (tsmith) to the passwords.txt file using the "nano" command to edit the file and add the password. I will double check if it saved correctly by using the "cat" command against the file.
   
    <img src="https://i.imgur.com/Lreu1Jq.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/TGhqBV8.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/LLiJNUk.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/>
 - Step 6: Switching over to our target machine. We make sure to configure Windows to allow remote connections to the computer so that our attacker machine can use RDP to connect after brute forcing the password. We will also add the users computers that can be connected to which will be jsmith and tsmith.
   
   <img src="https://i.imgur.com/DF7DnM2.png" height="40%" width="40%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/mLa4kZ6.png" height="40%" width="40%" alt="Active Directory Homelab Steps"/>
 
--Step 7: We move back to our Kali machine and begin constructing our command with "crowbar". The command also needs to know specifications like which user to target, with what reomote connection method, with what password file, and with what IP address. This is done by the flags that are in the command. The "-b" flag represents the type of remote connection which in this case is RDP. The "-u" flag representing the the user which is "jsmith". The "-C" flag meaning the which file of passwords we want to use (passwords.txt). And finally the "-s" flag meaning which specific IP address in the domain we want to target. The command will run all of the passwords listed in the file to the target and if successful; it will show a line saying "connection successful" with the username and password right next to it.
+-Step 7: We move back to our Kali machine and begin constructing our command with "crowbar". The command also needs to know specifications like which user to target, with what remote connection method, with what password file, and with what IP address. This is done by the flags that are in the command. The "-b" flag represents the type of remote connection which in this case is RDP. The "-u" flag representing the the user which is "tsmith". The "-C" flag meaning the which file of passwords we want to use (passwords.txt). And finally the "-s" flag meaning which specific IP address in the domain we want to target. The command will run all of the passwords listed in the file to the target and if successful; it will show a line saying "connection successful" with the username and password right next to it.
 
-<img src="https://i.imgur.com/YFRJXKS.png" height="80%" width="80%" alt="Active Directory Homelab Steps"/> 
+<img src="https://i.imgur.com/nOk8Ygy.png" height="80%" width="80%" alt="Active Directory Homelab Steps"/> 
 
--Step 8: We hop back on our target Windows 10 machine and disable Windows Defender and anti virus. We head to our kali serviced web page that has the malware on it. We download the malware and run it. Now that the malware has been executed, we open up the command prompt with administrator privilages. We type in "netstat -anob" and we see an established connection to our Kali attacker machine. We also use the PID from that connection output and open it up on windows task manager to see that it is indeed the malware that was executed
+-Step 8: Next, we hop into out splunk server to gather telemetry and alerts of what we executed on our kali machine. We search for index=endpoint tsmith and find that we have some event codes in one of th tabs. We click and find event IDs in that tab. We search the event ID 4625 which has 20 entries on Ultimate Windows Security and discover that this means there have been 20 failed log in attempts to our target machine. This sound right since there were 20 wrong passwords and one correct password in our passwords.txt file. Back in the event codes tab, we see another event ID of 4624 with one entry. We search that up on UWS and figure out that the code means that an account was successfully logged on. When we look at the timing of all of the events, they all happen simultaneously which is a key give away for a brute force attack. We search the event ID 4624 and expand the event to see all the line and we can see that a machine named kali with its IP adress have made a connection to our target machine.
 
-<img src="https://i.imgur.com/OKCqc6N.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/y4eibW7.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/CvvQhNA.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/>
+<img src="https://i.imgur.com/MIkVjcU.png" height="20%" width="20%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/VznFPhD.png" height="20%" width="20%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/FfIPVm4.png" height="20%" width="20%" alt="Active Directory Homelab Steps"/>
+<img src="https://i.imgur.com/iGxhvLr.png" height="20%" width="20%" alt="Active Directory Homelab Steps"/>
 
--Step 9: Jumping back to our Kali machine, it looks like we have a connection where we were listening in with our handler. Now we have control over the target machine. We now run a few commmands. We type in the "shell" command to establish a shell on our target machine. We also run the "net user", "net localgroup", and "ipconfig" commands to exfiltrate more information from the target machine. After this, we will check back on our Splunk SIEM to see what kind of telemetry has been generated.
+-Step 9: To gain more visibiltity, we install the Atomic Red Team framework on our target machine and cross reference the attack ID code found in the atomics foolder to MITRE ATTACK framework. We find the create local account technique code (T1136.001) in our folder and we know what it means because of the MAF website. We open up powershell and use the "invoke-AtomicTest T1136.001" to aquire further information. We find that an account named "NewLocalUser" has been made.
 
-<img src="https://i.imgur.com/im8iLwV.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/nxwJ7c5.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/0AF9kAv.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/>
+<img src="https://i.imgur.com/eRA0ue8.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/h7UydvB.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/dQLmrFc.png" height="30%" width="30%" alt="Active Directory Homelab Steps"/>
 
 
--Step 10: Back on our Splunk SIEM, we search for our "index=endpoint" but at the end of it we query the Kali attacker machine's IP address. It would like this "index=endpoint 192.168.20.11". We scroll down to discover that one destination port was targeted and it was the 3389 port for RDP. Some questions an analyst would ask are; "Should this machine be attempting to connect to RDP?, "What machine is this?", "Who does is belong to?", or "How is it able to listen into and scan my ports?". 
+-Step 10: Back on our Splunk SIEM, we search for our "index=endpoint NewLocalUser" and get some hits on the search. Without Atomic Red Team and the Mitre ATTACK Framework, we would have been blind to this extra bit of valuable information.
 
-<img src="https://i.imgur.com/UmPMzkS.png" height="80%" width="80%" alt="Active Directory Homelab Steps"/>
-
-Step 11: We can further dig deeper into other events that were logged by Splunk. This time we can search with the name of the malware at the end so; "index=endpoint Resume.pdf.exe. We have 13 events and 7 event codes generated. We delve deeper by investigating the first event code out of 7. By expanding this event, we can see that a parent process had spawned another process which ran a cmd.exe. We also see the process id 5428 which we could use to query our data to see what that command had done. Instead we opt with the process guid. We copy the process guid characters and paste it at the end of our "index=enpoint" instead using the malware name or another process id. This would looklike: "index=endpoint d542c381... ". This shows use exactly which commands the attacker used to exfiltrate data displayed in our Splunk.
-
- <img src="https://i.imgur.com/aP18Q4u.png" height="40%" width="40%" alt="Active Directory Homelab Steps"/> <img src="https://i.imgur.com/W0wafAz.png" height="40%" width="40%" alt="Active Directory Homelab Steps"/>
-
+<img src="https://i.imgur.com/j3IYQ9X.png" height="80%" width="80%" alt="Active Directory Homelab Steps"/>
 
 
